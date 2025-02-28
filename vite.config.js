@@ -1,9 +1,13 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import { NodeGlobalsPolyfillPlugin } from '@esbuild-plugins/node-globals-polyfill'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import { NodeGlobalsPolyfillPlugin } from '@esbuild-plugins/node-globals-polyfill';
 
 export default defineConfig({
   plugins: [react()],
+  base: './', // Add this to enforce relative paths
+  build: {
+    outDir: 'dist' // Explicitly set output to dist/ (matches your workflow)
+  },
   optimizeDeps: {
     esbuildOptions: {
       plugins: [
@@ -21,5 +25,4 @@ export default defineConfig({
   define: {
     'process.env': {}
   }
-})
-
+});
