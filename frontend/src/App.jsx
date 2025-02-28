@@ -1,3 +1,5 @@
+// UI for gno.land based Conway's Game of Life
+//
 import React, { useEffect, useState, useCallback } from "react"
 import { GnoJSONRPCProvider } from "@gnolang/gno-js-client"
 import {
@@ -29,6 +31,8 @@ export default function App() {
   const [error, setError] = useState(null)
   const [cellColor, setCellColor] = useState('#10b981') // default emerald-500
   const [cellCharacters, setCellCharacters] = useState(' O') // default space and X
+  const [animationSpeed, setAnimationSpeed] = useState(500)
+  const [generationCount, setGenerationCount] = useState(0)
 
   const generateRandomBoard = useCallback(() => {
     const rows = []
@@ -39,7 +43,6 @@ export default function App() {
       for (let j = 0; j < dimensions.width; j++) {
         if (Math.random() < density) {
           // Randomly select one of the provided characters
-          // Skew the odds of selecting a given character by inputting it into the UI more than once
           const randomChar = chars[Math.floor(Math.random() * chars.length)]
           row += randomChar
         } else {
@@ -54,6 +57,8 @@ export default function App() {
   const renderNewGeneration = async (board) => {
     try {
       const output = await provider.getRenderOutput(realmPath, board)
+      // Increment generation count when we get a new board
+      setGenerationCount(prev => prev + 1)
       return output
     } catch (err) {
       console.error("Error calling Render:", err)
@@ -64,21 +69,37 @@ export default function App() {
   }
 
   useEffect(() => {
-    let intervalId
+  let timeoutId;
+  let isMounted = true;
 
-    if (isRunning && generation) {
-      intervalId = setInterval(async () => {
-        const nextGen = await renderNewGeneration(generation)
-        if (nextGen === generation) {
-          setIsRunning(false)
-        } else {
-          setGeneration(nextGen)
-        }
-      }, 200)
+  const runGeneration = async () => {
+    if (!isRunning || !generation || !isMounted) return;
+
+    const nextGen = await renderNewGeneration(generation);
+    
+    if (!isMounted) return;
+
+    if (nextGen === generation) {
+      setIsRunning(false);
+    } else {
+      setGeneration(nextGen);
+      // Schedule the next iteration after this one completes
+      timeoutId = setTimeout(runGeneration, animationSpeed);
     }
+  };
 
-    return () => clearInterval(intervalId)
-  }, [isRunning, generation])
+  if (isRunning && generation) {
+    runGeneration();
+  }
+
+  // Cleanup function
+  return () => {
+    isMounted = false;
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  };
+}, [isRunning, generation, animationSpeed]);
 
   useEffect(() => {
     setGeneration(generateRandomBoard())
@@ -101,10 +122,14 @@ export default function App() {
     setIsRunning(false)
     setGeneration("")
     setShowSettings(true)
+    // Reset generation count
+    setGenerationCount(0)
   }
 
   const handleRegenerate = () => {
     setGeneration(generateRandomBoard())
+    // Reset generation count when regenerating
+    setGenerationCount(0)
   }
 
   const handleStep = async () => {
@@ -121,12 +146,16 @@ export default function App() {
     const rows = board.split("\\n");
     
     return (
-      <div className="overflow-auto max-w-full">
+      <div className="overflow-auto">
         <div 
           className="board"
           style={{
+            display: 'grid',
             gridTemplateColumns: `repeat(${rows[0].length}, 1rem)`,
             gridTemplateRows: `repeat(${rows.length}, 1rem)`,
+            gap: '1px',
+            margin: 'auto',
+            minWidth: 'min-content',
             ...cellStyles
           }}
         >
@@ -186,6 +215,25 @@ export default function App() {
           onChange={(e) => setDensity(parseFloat(e.target.value))}
           className="input-range"
         />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-300 mb-2">
+          Animation Speed ({(animationSpeed / 1000).toFixed(1)}s)
+        </label>
+        <input
+          type="range"
+          min="50"
+          max="10000"
+          step="100"
+          value={animationSpeed}
+          onChange={(e) => setAnimationSpeed(parseInt(e.target.value))}
+          className="input-range"
+        />
+        <div className="flex justify-between text-xs text-gray-400 mt-1">
+          <span>Faster</span>
+          <span>Slower</span>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -256,7 +304,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-900 py-8 text-gray-100">
-      <div className="max-w-7xl mx-auto px-4">
+      <div className="max-w-7xl mx-auto px-4 min-w-fit">
         <h1 className="text-4xl font-bold mb-8 text-center text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-emerald-600">
           Conway's Game of Life
         </h1>
@@ -271,7 +319,10 @@ export default function App() {
           {showSettings && settingsJSX}
 
           <div className="flex flex-col items-center space-y-6">
-            <div className="w-full flex justify-center p-4 bg-gray-800/50 rounded-lg">
+            <div className="text-lg font-semibold text-emerald-400">
+              Generation: {generationCount}
+            </div>
+            <div className="w-fit flex justify-center p-4 bg-gray-800/50 rounded-lg">
               {renderBoard(generation)}
             </div>
 
