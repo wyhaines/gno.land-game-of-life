@@ -108,6 +108,7 @@ export default function App() {
   useEffect(() => {
     if (showSettings) {
       setGeneration(generateRandomBoard())
+      setGenerationCount(0)
     }
   }, [dimensions.width, dimensions.height, density])
 
@@ -120,7 +121,7 @@ export default function App() {
 
   const handleReset = () => {
     setIsRunning(false)
-    setGeneration("")
+    setGeneration(generateRandomBoard())
     setShowSettings(true)
     // Reset generation count
     setGenerationCount(0)
